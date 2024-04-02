@@ -72,8 +72,8 @@ WORKDIR /home/${USR}/
 
 我的优化思路：注意到peek函数的返回类型是`string_view`，这是一个轻量化的容器，它的内部仅保存了一个只读指针和指针指向的字符串的长度，这是本题一个很好的突破口。然而用string_view直接保存字符串肯定是不可行的，因为`string_view`是只读的，push功能必然要进行：(1).`string_view to string` (2).`string to longer string` (3)`longer string to string_view`，其中(1)和(2)都必然存在内存的复制，在字符串较长的时候，复制的开销很大，非常影响读写速度，因此我们在优化过程中需要尽可能避免内存的复制。那么优化的思路就很清晰了。
 
-我的优化思路：既要尽可能的避免内存的复制，又需要存储多个字符串拼接成“流”，那么就使用`deque<string>`(`queue<string>`同理)存储字符串，借助`std::move`将data直接转为右值引用后直接移动到队列尾部，这样一来我们在push的过程中时间开销就变得非常小，达到了`O(1)`。接下来就是对string_view的合理运用：定义一个`string_view`类型的成员`preview`，让它在`ByteStream`进行读写操作时始终指向队列中的第一个`string`，在`peek`函数调用时可以直接返回`preview`。由于string_view有一个非常方便的方法`remove_prefix(len)`，它的功能与string::substr(len)功能类似，但是它不存在内存的复制，只移动了内部的指针。借助这个方法，在进行ByteStream的pop的过程中，如果需要pop的长度已经小于队列首元素的长度，我们可以直接调用`preview.remove_prexif(expected_popping_length)`，以此避免了获取首部字符串的子串再推回队列的繁琐且开销大的过程。
+我的优化思路：既要尽可能的避免内存的复制，又需要存储多个字符串拼接成“流”，那么就使用`queue<string>`(`queue<string>`同理)存储字符串，借助`std::move`将data直接转为右值引用后直接移动到队列尾部，这样一来我们在push的过程中时间开销就变得非常小，达到了`O(1)`。接下来就是对string_view的合理运用：定义一个`string_view`类型的成员`preview`，让它在`ByteStream`进行读写操作时始终指向队列中的第一个`string`，在`peek`函数调用时可以直接返回`preview`。由于string_view有一个非常方便的方法`remove_prefix(len)`，它的功能与string::substr(len)功能类似，但是它不存在内存的复制，只移动了内部的指针。借助这个方法，在进行ByteStream的pop的过程中，如果需要pop的长度已经小于队列首元素的长度，我们可以直接调用`preview.remove_prexif(expected_popping_length)`，以此避免了获取首部字符串的子串再推回队列的繁琐且开销大的过程。
 
-docker环境下吞吐速度快的吓人, 直接薄纱VirtualBox环境下的吞吐速度, 侧面说明VirtualBox笨重
+docker环境下吞吐速度快的吓人, 直接薄纱VirtualBox环境下的吞吐速度, 侧面说明VirtualBox笨重, 同样的代码VirtualBox甚至跑不到5Gbit/s(虽然也远超要求了, 奈何VirtualBox环境下老出AddressSanitizer:DEADLYSIGNAL, 之前查bug给我查的都快蚌埠住了, 差点弃坑)
 
 ![alt text](./assets/image_check0.png)
