@@ -1,4 +1,4 @@
-#define barrier() __asm__ __volatile__("": : :"memory")
+#define barrier() __asm__ __volatile__( "" : : : "memory" )
 #include "byte_stream.hh"
 #include <iostream>
 using namespace std;
@@ -21,14 +21,13 @@ void Writer::push( string data ) noexcept
   if ( is_closed_ || available_capacity_ <= 0 || !data.length() ) {
     return;
   }
-  if(data.length() > available_capacity())
-  {
-    data.resize(available_capacity());
+  if ( data.length() > available_capacity() ) {
+    data.resize( available_capacity() );
   }
   available_capacity_ -= data.length();
   total_bytes_pushed_ += data.length();
   stream_.emplace( move( data ) );
-  if ( !stream_.empty() && preview.empty()) {
+  if ( !stream_.empty() && preview.empty() ) {
     preview = stream_.front();
   }
   return;
@@ -37,8 +36,7 @@ void Writer::push( string data ) noexcept
 void Writer::close()
 {
   // Your code here.
-  if(!is_closed_)
-  {
+  if ( !is_closed_ ) {
     is_closed_ = true;
     stream_.emplace( string( 1, EOF ) );
   }
@@ -94,20 +92,16 @@ void Reader::pop( uint64_t len )
     if ( len >= preview.size() ) {
       len -= preview.size();
       stream_.pop();
-      if(stream_.empty())
-      {
+      if ( stream_.empty() ) {
         preview = ""sv;
-      }
-      else
-      {
+      } else {
         preview = stream_.front();
       }
     } else {
       preview.remove_prefix( len );
       len = 0;
     }
-    if(preview.size() == 0)
-    {
+    if ( preview.size() == 0 ) {
       break;
     }
   }
