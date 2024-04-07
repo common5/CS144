@@ -6,11 +6,6 @@ void Reassembler::flush()
 {
   auto it = buffer_.begin();
   while ( it != buffer_.end() && !output_.writer().is_closed() && output_.writer().available_capacity() > 0 ) {
-    // if(it->first < expectedIdx_)
-    // {
-    //   // 有一种覆盖是push过程无法避免的
-    //   it->second.data.erase(0, expectedIdx_ - it->first);
-    // }
     if ( it->first > expectedIdx_ ) {
       break;
     }
@@ -145,39 +140,6 @@ void Reassembler::cache_to_buffer( uint64_t first_index, string data, bool is_la
   total_bytes_pending_ += data.size();
   BString tmp( std::move( data ), is_last_substring );
   buffer_[first_index] = std::move( tmp );
-  // if(first_index == it2->first)
-  // {
-  //   if(data.size() <= it2->second.data.size())
-  //   {
-  //     return;// data已经被it2->data全覆盖, 无需任何操作
-  //   }
-  //   else
-  //   {
-  //     auto tmp = it2;
-  //     tmp++;
-  //     if(tmp != buffer_.end())
-  //     {
-  //       if(it2->first + data.size() > tmp->first)
-  //       {
-  //         data.resize(tmp->first - it2->first);
-  //         is_last_substring = false;
-  //       }
-  //     }
-  //     total_bytes_pending_ -= it2->second.data.size();
-  //     total_bytes_pending_ += data.size();
-  //     it2->second.data = std::move(data);
-  //     it2->second.is_last_substring = is_last_substring;
-  //     return;
-  //   }
-  // }
-  // if(first_index + data.size() > it2->first)
-  // {
-  //   data.resize(it2->first - first_index); // it2->first一定大于first_index
-  //   is_last_substring = false;
-  // }
-  // total_bytes_pending_ += data.size();
-  // BString tmp(std::move(data), is_last_substring);
-  // buffer_[first_index] = std::move(tmp);
 }
 
 uint64_t Reassembler::bytes_pending() const
