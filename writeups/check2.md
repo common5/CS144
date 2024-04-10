@@ -4,6 +4,7 @@
 `receive()`和`send()`实现不复杂, 但是需要注意对错误情况的处理, 可以根据通过测试来确认需要错误处理的情况
 
 比较奇怪的事是这个checkpoint中, 允许SYN和FIN在同一个片段中同时置1的畸形报文, 与RFC793的规定有出入
+
 RFC793原文:
 
 `eighth, check the FIN bit,
