@@ -22,6 +22,9 @@ public:
   /* Generate an empty TCPSenderMessage */
   TCPSenderMessage make_empty_message() const;
 
+  /* 生成message */
+  TCPSenderMessage make_message(Wrap32 seqno, bool syn, std::string payload, bool fin) const;
+
   /* Receive and process a TCPReceiverMessage from the peer's receiver */
   void receive( const TCPReceiverMessage& msg );
 
@@ -48,4 +51,16 @@ private:
   ByteStream input_;
   Wrap32 isn_;
   uint64_t initial_RTO_ms_;
+  
+  uint16_t window_size_ { 1 };
+  uint64_t cnt_seq_in_flight_ {};
+  uint64_t cnt_consecutive_retransmission_ {};
+  uint64_t next_seqno_ { isn_ };
+
+  bool read_fin_ { false };
+  bool read_syn_ { false };
+  bool sent_fin_ { false };
+  bool sent_syn_ { false };
+
+  std::queue<TCPSenderMessage> buffer_;
 };
