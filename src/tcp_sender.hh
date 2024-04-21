@@ -11,19 +11,36 @@
 #include <optional>
 #include <queue>
 
+class TCPTimer
+{
+private:
+  uint64_t RTO_;
+  uint64_t time_passed_ {};
+  bool activated_ { false };
+
+public:
+  TCPTimer( uint64_t RTO ) : RTO_( RTO ) {}
+  TCPTimer& activate(); // 返回本身, 流控制
+  TCPTimer& reset(); 
+  TCPTimer& backoff();
+  TCPTimer& ticked( uint64_t time_ticked_ms_ );
+  bool is_expired() const { return activated_ && time_passed_ >= RTO_; }
+  bool is_activated() const { return activated_; }
+};
+
 class TCPSender
 {
 public:
   /* Construct TCP sender with given default Retransmission Timeout and possible ISN */
   TCPSender( ByteStream&& input, Wrap32 isn, uint64_t initial_RTO_ms )
-    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms )
+    : input_( std::move( input ) ), isn_( isn ), initial_RTO_ms_( initial_RTO_ms ), timer_( initial_RTO_ms )
   {}
 
   /* Generate an empty TCPSenderMessage */
   TCPSenderMessage make_empty_message() const;
 
   /* 生成message */
-  TCPSenderMessage make_message(Wrap32 seqno, bool syn, std::string payload, bool fin) const;
+  TCPSenderMessage make_message( Wrap32 seqno, bool syn, std::string payload, bool fin ) const;
 
   /* Receive and process a TCPReceiverMessage from the peer's receiver */
   void receive( const TCPReceiverMessage& msg );
@@ -51,16 +68,17 @@ private:
   ByteStream input_;
   Wrap32 isn_;
   uint64_t initial_RTO_ms_;
-  
+  TCPTimer timer_;
+
   uint16_t window_size_ { 1 };
   uint64_t cnt_seq_in_flight_ {};
   uint64_t cnt_consecutive_retransmission_ {};
-  uint64_t next_seqno_ { isn_ };
+  uint64_t next_seqno_ {};
 
   bool read_fin_ { false };
   bool read_syn_ { false };
   bool sent_fin_ { false };
   bool sent_syn_ { false };
 
-  std::queue<TCPSenderMessage> buffer_;
+  std::queue<TCPSenderMessage> buffer_ {};
 };
