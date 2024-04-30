@@ -333,9 +333,6 @@ int main()
       const size_t rto = uniform_int_distribution<uint16_t> { 30, 10000 }( rd );
       cfg.isn = isn;
       cfg.rt_timeout = rto;
-      
-      fstream f("/home/common5/cs144/CS144/writeups/2.txt", ios::out|ios::trunc);
-      f<< isn.get_raw() << " " << cfg.send_capacity << endl;
 
       TCPSenderTestHarness test {
         "When filling window, treat a '0' window size as equal to '1' but don't back off RTO", cfg };

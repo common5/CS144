@@ -52,7 +52,6 @@ void TCPSender::push( const TransmitFunction& transmit )
   const uint16_t wnd_size
       = window_size_ == 0 ? 1 : window_size_; // 当窗口大小为0的时候, 需要将假装是1, 否则永远无法知道接收方的状态
   // 循环执行: 1.组装报文到大小上限, 2.发送报文, 循环退出条件: 已发送但未确认的包的大小总和达到窗口上限,
-  // 或者别的什么错误
   for ( std::string payload {}; cnt_seq_in_flight_ < wnd_size; payload.clear() ) {
     std::string_view content = rdr.peek();
     if ( content.empty() && sent_syn_ && (!read_fin_ || sent_fin_ ) ) {
@@ -88,12 +87,10 @@ void TCPSender::push( const TransmitFunction& transmit )
     }
     bool fin_flag = false;
     if ( read_fin_ ) {
-              // getchar();
       // 如果流已经结束, 那么需要判断能否在当前包中附加fin_flag
       if ( payload.size() + !sent_syn_ + cnt_seq_in_flight_ + 1 <= wnd_size ) {
         fin_flag = true;
       }
-      // f << Wrap32::wrap(next_seqno_, isn_).get_raw() << " c " << payload.size() + !sent_syn_ + 1 << " " << payload.size() + !sent_syn_ + cnt_seq_in_flight_ + 1 << " " << wnd_size << endl;
     }
     auto msg = make_message( Wrap32::wrap( next_seqno_, isn_ ), !sent_syn_, std::move( payload ), fin_flag );
     buffer_.emplace( msg );
@@ -101,11 +98,7 @@ void TCPSender::push( const TransmitFunction& transmit )
     cnt_seq_in_flight_ += msg.sequence_length();
     next_seqno_ += msg.sequence_length();
     sent_syn_ = true; // 只要发送了报文, 那么sent_syn_一定会变为true
-    // fstream f("/home/common5/cs144/CS144/writeups/1.txt", ios::out|ios::app);
-    // f << read_fin_ << endl;
     if ( fin_flag ) {
-      // f << "sent_fin_" << endl;
-      // getchar();
       sent_fin_ = true;
     }
     if ( msg.sequence_length() > 0 ) {
