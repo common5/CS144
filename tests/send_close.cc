@@ -59,9 +59,6 @@ int main()
       const Wrap32 isn( rd() );
       cfg.isn = isn;
 
-      fstream f("/home/common5/cs144/CS144/writeups/2.txt", ios::out|ios::trunc);
-      f<< isn.get_raw() << endl;
-
       TCPSenderTestHarness test { "SYN + FIN", cfg };
       test.execute( Receive { { {}, 1024 } }.without_push() );
       test.execute( Close {} );

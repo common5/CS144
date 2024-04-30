@@ -46,47 +46,31 @@ void TCPSender::push( const TransmitFunction& transmit )
   auto& rdr = input_.reader(); // 由于不能使用reader(), 因为需要用到pop(), pop不是一个常函数
   read_fin_ |= rdr.is_finished();
   // 特判处理
-        if ( read_fin_ ) {
-        fstream f( "/home/common5/cs144/CS144/writeups/1.txt", ios::out | ios::app );
-        // f << cnt_seq_in_flight_ << " " << window_size_ << endl;
-        f << Wrap32::wrap(next_seqno_, isn_).get_raw() << " " << window_size_ << endl;
-      }
   if ( sent_fin_ ) {
     return;
   }
-  // if ( input_.writer().is_closed() ) {
-  //       fstream f( "/home/common5/cs144/CS144/writeups/1.txt", ios::out | ios::app );
-  //       f << "read_fin_ = true \n";
-  //     }
-  // if(input_.writer().is_closed())
-  // {
-  //   fstream f("/home/common5/cs144/CS144/writeups/1.txt", ios::out|ios::app);
-  //   f << cnt_seq_in_flight_ << " " << window_size_ << endl;
-  //   getchar();
-  // }
+  const uint16_t wnd_size
+      = window_size_ == 0 ? 1 : window_size_; // 当窗口大小为0的时候, 需要将假装是1, 否则永远无法知道接收方的状态
   // 循环执行: 1.组装报文到大小上限, 2.发送报文, 循环退出条件: 已发送但未确认的包的大小总和达到窗口上限,
   // 或者别的什么错误
-  for ( std::string payload {}; cnt_seq_in_flight_ < window_size_; payload.clear() ) {
+  for ( std::string payload {}; cnt_seq_in_flight_ < wnd_size; payload.clear() ) {
     std::string_view content = rdr.peek();
     if ( content.empty() && sent_syn_ && (!read_fin_ || sent_fin_ ) ) {
 
       break; // input_流空了, 并且已经发送过syn, 并且input_未结束, 那么就啥也不用组装, 直接break
     }
     const size_t upper_size = TCPConfig::MAX_PAYLOAD_SIZE;
-    const uint16_t wnd_size
-      = window_size_ == 0 ? 1 : window_size_; // 当窗口大小为0的时候, 需要将假装是1, 否则永远无法知道接收方的状态
     const uint64_t syn_size
       = sent_syn_ ? 0 : 1; // 如果没有发送过syn_flag, 那么计算报文大小的时候则需要将syn_flag的大小计入
     // 报文大小= payload大小 + syn_flag + fin_flag, 但由于fin_flag比较特殊, 所以将fin_flag放到后面处理
     // 报文大小应该小于TCPConfig::MAX_PAYLOAD_SIZE, 同时总未达到包的大小应该小于window_size_
     // 组装报文
 
-    while ( cnt_seq_in_flight_ + payload.size() + syn_size < wnd_size && payload.size() + syn_size < upper_size ) {
+    while ( cnt_seq_in_flight_ + payload.size() + syn_size < wnd_size && payload.size() < upper_size ) {
       uint64_t expected_size
-        = min( wnd_size - syn_size - payload.size() - cnt_seq_in_flight_, upper_size - payload.size() - syn_size );
+        = min( wnd_size - syn_size - payload.size() - cnt_seq_in_flight_, upper_size - payload.size() );
+        
       if ( content.empty() || read_fin_ ) {
-        // read_fin_ |= rdr.is_finished();
-        // getchar();
         break;
       }
       if ( content.size() > expected_size ) {
@@ -95,24 +79,22 @@ void TCPSender::push( const TransmitFunction& transmit )
       payload.append( content );
       rdr.pop( content.size() );
       read_fin_ |= rdr.is_finished();
-      
+      if(input_.writer().is_closed())
+      {
+        fstream f( "/home/common5/cs144/CS144/writeups/1.txt", ios::out | ios::app );
+        f << Wrap32::wrap(next_seqno_, isn_).get_raw() << " b " << input_.writer().available_capacity() << " " << input_.writer().capacity() << " " << rdr.is_finished() << endl;
+      }
       content = rdr.peek();
     }
     bool fin_flag = false;
     if ( read_fin_ ) {
-      // fstream f( "/home/common5/cs144/CS144/writeups/1.txt", ios::out | ios::app );
-      // f << payload.size() + !sent_syn_ + 1 << " " << payload.size() + !sent_syn_ + cnt_seq_in_flight_ + 1 << "\n";
-      // getchar();
+              // getchar();
       // 如果流已经结束, 那么需要判断能否在当前包中附加fin_flag
-      if ( payload.size() + !sent_syn_ + 1 < upper_size
-           && payload.size() + !sent_syn_ + cnt_seq_in_flight_ + 1 <= wnd_size ) {
+      if ( payload.size() + !sent_syn_ + cnt_seq_in_flight_ + 1 <= wnd_size ) {
         fin_flag = true;
       }
+      // f << Wrap32::wrap(next_seqno_, isn_).get_raw() << " c " << payload.size() + !sent_syn_ + 1 << " " << payload.size() + !sent_syn_ + cnt_seq_in_flight_ + 1 << " " << wnd_size << endl;
     }
-    if ( fin_flag ) {
-        fstream f( "/home/common5/cs144/CS144/writeups/1.txt", ios::out | ios::app );
-        f << Wrap32::wrap(next_seqno_, isn_).get_raw() << endl;
-      }
     auto msg = make_message( Wrap32::wrap( next_seqno_, isn_ ), !sent_syn_, std::move( payload ), fin_flag );
     buffer_.emplace( msg );
     transmit( msg );
@@ -149,6 +131,10 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
   // (void)msg;
   if ( !msg.ackno.has_value() ) {
     window_size_ = msg.window_size;
+    if(msg.RST)
+    {
+      input_.reader().set_error();
+    }
     return;
   }
   window_size_ = msg.window_size;
@@ -192,7 +178,15 @@ void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& trans
   // 超时重传
   if ( timer_.is_expired() ) {
     transmit( buffer_.front() );
-    timer_.backoff().reset().activate();
-    cnt_consecutive_retransmission_++;
+    // 当且仅当实际窗口大小不为0的时候，采用exponential backoff策略并记录连续重传次数
+    if(window_size_ != 0)
+    {
+      timer_.backoff().reset().activate();
+      cnt_consecutive_retransmission_++;
+    }
+    else
+    {
+      timer_.reset().activate();
+    }
   }
 }
