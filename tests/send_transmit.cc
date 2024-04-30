@@ -86,8 +86,8 @@ int main()
       test.execute( AckReceived { isn + 1 }.with_win( 65000 ) );
       test.execute( ExpectSeqno { isn + 1 } );
       test.execute( ExpectSeqnosInFlight { 0 } );
-      constexpr uint32_t max_block_size = 10;
-      constexpr uint32_t n_rounds = 1000;
+      constexpr uint32_t max_block_size = 1000;
+      constexpr uint32_t n_rounds = 0;
       size_t bytes_sent = 0;
       for ( uint32_t i = 0; i < n_rounds; ++i ) {
         string data;

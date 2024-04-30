@@ -21,7 +21,7 @@ private:
 public:
   TCPTimer( uint64_t RTO ) : RTO_( RTO ) {}
   TCPTimer& activate(); // 返回本身, 流控制
-  TCPTimer& reset(); 
+  TCPTimer& reset();
   TCPTimer& backoff();
   TCPTimer& ticked( uint64_t time_ticked_ms_ );
   bool is_expired() const { return activated_ && time_passed_ >= RTO_; }

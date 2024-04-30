@@ -96,10 +96,10 @@ int main()
       test.execute( ExpectNoSegment {} );
       test.execute( Push { "1234567" } );
       test.execute( Close {} );
-      test.execute( ExpectMessage {}.with_no_flags().with_data( "1234567" ) );
+      test.execute( ExpectMessage {}.with_no_flags().with_data( "1234567" ).with_seqno(isn + 1) );
       test.execute( ExpectNoSegment {} ); // window is full
       test.execute( AckReceived { Wrap32 { isn + 8 } }.with_win( 1 ) );
-      test.execute( ExpectMessage {}.with_fin( true ).with_data( "" ) );
+      test.execute( ExpectMessage {}.with_fin( true ).with_data( "" ).with_seqno(isn + 8) );
       test.execute( ExpectNoSegment {} );
     }
 

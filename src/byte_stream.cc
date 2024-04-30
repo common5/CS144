@@ -38,7 +38,7 @@ void Writer::close()
   // Your code here.
   if ( !is_closed_ ) {
     is_closed_ = true;
-    stream_.emplace( string( 1, EOF ) );
+    // stream_.emplace( string( 1, EOF ) );
   }
 }
 
