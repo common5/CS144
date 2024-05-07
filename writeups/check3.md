@@ -1,34 +1,27 @@
-Checkpoint 3 Writeup
-====================
+## 0. 小作文
+类似于checkpoint2, checkpoint3实现了TCP的部分功能, checkpoint3中实现了TCP的发送端, 代码量不大但是要花很多耐心debug, 每次都需要接近一分钟的编译+测试相当痛苦, 由于使用测试工具, 定位bug的位置也相当难受(主要是不会用gdb), 只能采用最老土的方法————日志. 另一个比较痛苦的点在于没法直接用iostream来输出信息到控制台, 只能退而求其次使用fstream写到文件里去, 所以我的代码以及部分TCPSender测试中包含了`fstream`头文件. 推荐在debug的过程中翻看tests下的测试文件, 以及sender_test_harness.hh, 可以看到一些和测试相关的信息, 并理解测试用例期望的结果是怎样得到的.
 
-My name: [your name here]
+## 1. 先过一遍文档
 
-My SUNet ID: [your sunetid here]
+### 1.1. 我们要实现的TCPSender主要的工作
+- 追踪TCP通信接收端的窗口大小: 很显然, 我们需要知道接收方的窗口大小才能确定合适的发包大小
+- 发送端从输入字节流中读取数据, 在不超过当前已知窗口大小的情况下尽可能组装成大的TCP数据段(有必要的话需要包含SYN与FIN信号), 并将该TCP段发送出去. 当且仅当窗口已满或输入端字节流清空, TCPSender不必发送TCP数据段
+- 缓存处于传输过程中的包(即已发送而未收到接收端确认信号的包): 用于实现TCP的超时重传机制 (P.S. 文档里把这个包叫做outstanding segments, 我才知道原来outstanding还有待解决的意思)
+- 一定时间后未被确认的已发送包需要进行超时重传: TCP是个负责任的协议, 它必须确认包的完整接收, 所以需要重传避免一些网络问题引起的丢包或错包或者别的什么问题
 
-I collaborated with: [list sunetids here]
+原文档还解释了为什么需要重传以及为什么重传不影响接收端正常接收数据段, 总结一下就是TCP是个安全有序的传输协议, 它需要每个包都被确认收到, 以此来维护它的安全性, 而在checkpoint2中我们已经完成了TCP接收端的数据有序化工作, 所以很显然重传并不会影响TCP传输数据的有序性
 
-I would like to thank/reward these classmates for their help: [list sunetids here]
+### 1.2.TCPSender如何知道一个数据段是否丢失
+在Lab中我们通过实现tick()方法来进行计时并确认已发送包是否超时. tick()方法会告知TCPSender距离上一次调用tick()经过了多长时间, tick()方法会从外部隔一段时间调用一次, 在每次调用时都会判断第一个未确认包是否超时, 超时则重传
 
-This checkpoint took me about [n] hours to do. I [did/did not] attend the lab session.
-
-Program Structure and Design of the TCPSender [Describe data
-structures and approach taken. Describe alternative designs considered
-or tested.  Describe benefits and weaknesses of your design compared
-with alternatives -- perhaps in terms of simplicity/complexity, risk
-of bugs, asymptotic performance, empirical performance, required
-implementation time and difficulty, and other factors. Include any
-measurements if applicable.]: []
-
-Implementation Challenges:
-[]
-
-Remaining Bugs:
-[]
-
-- Optional: I had unexpected difficulty with: [describe]
-
-- Optional: I think you could make this lab better by: [describe]
-
-- Optional: I was surprised by: [describe]
-
-- Optional: I'm not sure about: [describe]
+一些细节:
+1. 每过几毫秒tick方法会被调用, 并通过参数传递的形式告知经过的时长. 需要注意的是, tick(args..)内部不应该调用任何获取系统时间的函数, tick的计时与系统时间没有任何联系
+2. TCPSender的构造函数中, 存在一个参数用于初始化初始超时重传阈值(RTO, retransmission timeout) 已发送而未被确认的包经过大于等于RTO的时间后会进行重传
+3. 我们要实现一个timer: 一个可以在任意时间点启动, 并且在到达RTO时超时的"闹钟". 文档再次强调了"不要用现实时间"
+4. 在每一个非0长数据段发送时, 如果timer没有启动, 那么启动timer.
+5. 当所有已发送的包都被确认时, 停止timer
+6. LAB要求我们实现一种非常简单粗暴的流量控制算法, 在tick调用后发现超时会启动, 以下是算法具体步骤:
+    - 重传最早发送且未得到完整确认的包
+    - 如果接收端窗口大小不为0:
+        1. 记录连续重传次数
+        2. 实施RTO的"指数退避", 大白话就是RTO翻倍, 不过要注意的是我们不该对TCPSender初始化的RTO进行翻倍, 我们需要保有一个RTO副本, 用于记录我们当前timer计时过程中的RTO, 我们仅针对当前timer保有的RTO进行翻倍
