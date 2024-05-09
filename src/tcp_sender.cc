@@ -43,9 +43,9 @@ void TCPSender::push( const TransmitFunction& transmit )
 {
   // Your code here.
   (void)transmit;
-  auto& rdr = input_.reader(); // 由于不能使用reader(), 因为需要用到pop(), pop不是一个常函数
+  auto& rdr = input_.reader(); // 不能直接使用类内定义的成员函数reader(), 因为需要用到pop(), pop不是一个常函数
   read_fin_ |= rdr.is_finished();
-  // 特判处理
+  // 已结束
   if ( sent_fin_ ) {
     return;
   }

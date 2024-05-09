@@ -1,7 +1,7 @@
 ## 0. 小作文
 类似于checkpoint2, checkpoint3实现了TCP的部分功能, checkpoint3中实现了TCP的发送端, 代码量不大但是要花很多耐心debug, 每次都需要接近一分钟的编译+测试相当痛苦, 由于使用测试工具, 定位bug的位置也相当难受(主要是不会用gdb), 只能采用最老土的方法————日志. 另一个比较痛苦的点在于没法直接用iostream来输出信息到控制台, 只能退而求其次使用fstream写到文件里去, 所以我的代码以及部分TCPSender测试中包含了`fstream`头文件. 推荐在debug的过程中翻看tests下的测试文件, 以及sender_test_harness.hh, 可以看到一些和测试相关的信息, 并理解测试用例期望的结果是怎样得到的.
 
-## 1. 先过一遍文档
+## 1. 过一遍文档
 
 ### 1.1. 我们要实现的TCPSender主要的工作
 - 追踪TCP通信接收端的窗口大小: 很显然, 我们需要知道接收方的窗口大小才能确定合适的发包大小
@@ -24,4 +24,39 @@
     - 重传最早发送且未得到完整确认的包
     - 如果接收端窗口大小不为0:
         1. 记录连续重传次数
-        2. 实施RTO的"指数退避", 大白话就是RTO翻倍, 不过要注意的是我们不该对TCPSender初始化的RTO进行翻倍, 我们需要保有一个RTO副本, 用于记录我们当前timer计时过程中的RTO, 我们仅针对当前timer保有的RTO进行翻倍
+        2. 实施RTO的"指数退避", 人话就是RTO翻倍, 但需要注意这个翻倍是临时的, 一旦重传的包被ack, RTO要恢复到最初的值
+    - RTO指数退避后需要重置计时器计数
+7. 收到ackno, 并且可以确认第一个未被ack的包已经被完整确认收到, 那么需要进行以下几个操作:
+    - 重置RTO的值
+    - 如果还有未被确认的包, 重置计时器, 为下一个未确认包进行超时计时
+    - 重置重传计数器
+
+计时器的实现可以直接在TCPSender类内直接实现, 当然你也可以为计时器设计一个单独的类, 我个人推荐后者, 代码功能更清晰
+
+### 1.3. TCPSender要实现的主要函数
+1. void push( const TransmitFunction& transmit );
+
+TransmitFunction类似于别名, 本质上其实就是`std::function`, 在tcp_sender.hh中的具体声明代码
+```C++
+using TransmitFunction = std::function<void( const TCPSenderMessage& )>;
+```
+如果好奇传入的transmit干了什么, 可以查看`tests/sender_test_harness.hh`的代码.
+
+push函数的工作简单来说就是从内部字节流中读取数据并组装成报文, 然后把它发送出去. 需要注意的是, 报文应该尽量填满当前窗口大小, 即报文长度应该尽可能的大. 但需要记得, 报文长度不该超过TCP标准规定的最大报文长度, 在lab中它是`TCPConfig::MAX_PAYLOAD_SIZE`(TCPConfig的定义在`/util/tcp_config.hh`).
+
+在实现的过程中, 需考虑一个问题, 接收端的窗口大小只在收到来自发送端的包的时候才会被动的告知发送端, 所以如果在窗口为0时仍然按照上述逻辑处理push函数, 那么一旦接收端窗口被填满, 并将这个消息传给发送端, 那么发送端永远都不会再向接收端发送消息了. 
+因此, 在已知接收端窗口大小为0时, 发送端需要假装窗口大小不为0, 照常发送消息, 直到收到接收端的回复, 更新窗口大小
+
+2. void receive( const TCPReceiverMessage& msg );
+模拟发送端接收来自接收端的回复, 在这里需要进行的操作包括:
+    - 判断是否有包被完全确认
+    - 更新未确认包队列
+    - 更新超时重传计时器
+
+3. void tick( uint64_t ms_since_last_tick, const TransmitFunction& transmit);
+模拟时间流动, ms_since_last_tick存储距离上一次调用tick函数经过的时间
+需要在这里进行超时重传 (如果超时)
+
+4. TCPSenderMessage make_empty_message() const;
+制造空消息, 注意empty_message发送后不需要进行重传, 也不会被当作一个需要被ack的消息
+

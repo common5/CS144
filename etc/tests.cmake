@@ -11,7 +11,7 @@ macro (ttest name)
   set_property(TEST ${name} PROPERTY FIXTURES_REQUIRED compile)
 endmacro (ttest)
 
-set_property(TEST ${compile_name} PROPERTY TIMEOUT 0)
+set_property(TEST ${compile_name} PROPERTY TIMEOUT 1000)
 set_tests_properties(${compile_name} PROPERTIES FIXTURES_SETUP compile)
 
 add_test(NAME t_webget COMMAND "${PROJECT_SOURCE_DIR}/tests/webget_t.sh" "${PROJECT_BINARY_DIR}")
