@@ -50,11 +50,11 @@ void TCPSender::push( const TransmitFunction& transmit )
     return;
   }
   const uint16_t wnd_size
-      = window_size_ == 0 ? 1 : window_size_; // 当窗口大小为0的时候, 需要将假装是1, 否则永远无法知道接收方的状态
+    = window_size_ == 0 ? 1 : window_size_; // 当窗口大小为0的时候, 需要将假装是1, 否则永远无法知道接收方的状态
   // 循环执行: 1.组装报文到大小上限, 2.发送报文, 循环退出条件: 已发送但未确认的包的大小总和达到窗口上限,
   for ( std::string payload {}; cnt_seq_in_flight_ < wnd_size; payload.clear() ) {
     std::string_view content = rdr.peek();
-    if ( content.empty() && sent_syn_ && (!read_fin_ || sent_fin_ ) ) {
+    if ( content.empty() && sent_syn_ && ( !read_fin_ || sent_fin_ ) ) {
 
       break; // input_流空了, 并且已经发送过syn, 并且input_未结束, 那么就啥也不用组装, 直接break
     }
@@ -68,7 +68,7 @@ void TCPSender::push( const TransmitFunction& transmit )
     while ( cnt_seq_in_flight_ + payload.size() + syn_size < wnd_size && payload.size() < upper_size ) {
       uint64_t expected_size
         = min( wnd_size - syn_size - payload.size() - cnt_seq_in_flight_, upper_size - payload.size() );
-        
+
       if ( content.empty() || read_fin_ ) {
         break;
       }
@@ -78,10 +78,10 @@ void TCPSender::push( const TransmitFunction& transmit )
       payload.append( content );
       rdr.pop( content.size() );
       read_fin_ |= rdr.is_finished();
-      if(input_.writer().is_closed())
-      {
+      if ( input_.writer().is_closed() ) {
         fstream f( "/home/common5/cs144/CS144/writeups/1.txt", ios::out | ios::app );
-        f << Wrap32::wrap(next_seqno_, isn_).get_raw() << " b " << input_.writer().available_capacity() << " " << input_.writer().capacity() << " " << rdr.is_finished() << endl;
+        f << Wrap32::wrap( next_seqno_, isn_ ).get_raw() << " b " << input_.writer().available_capacity() << " "
+          << input_.writer().capacity() << " " << rdr.is_finished() << endl;
       }
       content = rdr.peek();
     }
@@ -124,8 +124,7 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
   // (void)msg;
   if ( !msg.ackno.has_value() ) {
     window_size_ = msg.window_size;
-    if(msg.RST)
-    {
+    if ( msg.RST ) {
       input_.reader().set_error();
     }
     return;
@@ -172,13 +171,10 @@ void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& trans
   if ( timer_.is_expired() ) {
     transmit( buffer_.front() );
     // 当且仅当实际窗口大小不为0的时候，采用exponential backoff策略并记录连续重传次数
-    if(window_size_ != 0)
-    {
+    if ( window_size_ != 0 ) {
       timer_.backoff().reset().activate();
       cnt_consecutive_retransmission_++;
-    }
-    else
-    {
+    } else {
       timer_.reset().activate();
     }
   }

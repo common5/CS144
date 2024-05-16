@@ -1,6 +1,7 @@
 #pragma once
 
 #include <queue>
+#include <unordered_map>
 
 #include "address.hh"
 #include "ethernet_frame.hh"
@@ -59,6 +60,12 @@ public:
   // Called periodically when time elapses
   void tick( size_t ms_since_last_tick );
 
+  // 包装成以太网帧
+  EthernetFrame make_eth_frame( uint16_t type, EthernetAddress dst, std::vector<std::string> payload );
+
+  // 包装成ARP信息, 包含请求和回复两种
+  ARPMessage make_arp_msg( uint16_t opcode, EthernetAddress target_eth, uint32_t target_ip );
+
   // Accessors
   const std::string& name() const { return name_; }
   const OutputPort& output() const { return *port_; }
@@ -66,6 +73,20 @@ public:
   std::queue<InternetDatagram>& datagrams_received() { return datagrams_received_; }
 
 private:
+  class EtherAddressWithTimer
+  {
+  public:
+    EtherAddressWithTimer( EthernetAddress e_addr ) : ethernet_addr_( std::move(e_addr) ) {}
+    // EtherAddressWithTimer& operator=(EthernetAddress e_addr);
+    EthernetAddress get_eth_addr() const { return ethernet_addr_; }
+    EtherAddressWithTimer& tick( size_t ms_since_last_tick ) noexcept;
+    EtherAddressWithTimer& operator+=( size_t ms_since_last_tick ) noexcept { return tick( ms_since_last_tick ); }
+    auto operator<=> (const size_t interval) const { return time_passed_ <=> interval; }
+  private:
+    EthernetAddress ethernet_addr_;
+    size_t time_passed_ {};
+  };
+
   // Human-readable name of the interface
   std::string name_;
 
@@ -81,4 +102,13 @@ private:
 
   // Datagrams that have been received
   std::queue<InternetDatagram> datagrams_received_ {};
+
+  // 从ip映射到以太网地址的hash table
+  std::unordered_map<uint32_t, EtherAddressWithTimer> ip_map2_eth_ {};
+
+  // 记录某个ip发送ARP请求经过的时间
+  std::unordered_map<uint32_t, size_t> ip_map2_arp_timer {};
+
+  // 从目标ip地址映射到需要发送的数据包的multi hash table
+  std::unordered_multimap<uint32_t, InternetDatagram> ip_map2_datagrams {};
 };
