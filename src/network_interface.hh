@@ -1,5 +1,6 @@
 #pragma once
 
+#include <compare>
 #include <queue>
 #include <unordered_map>
 
@@ -75,16 +76,16 @@ public:
 private:
   class EtherAddressWithTimer
   {
+  private:
+    EthernetAddress ethernet_addr_;
+    size_t time_passed_ ;
   public:
-    EtherAddressWithTimer( EthernetAddress e_addr ) : ethernet_addr_( std::move(e_addr) ) {}
+    EtherAddressWithTimer( EthernetAddress e_addr ) : ethernet_addr_( std::move(e_addr) ), time_passed_{} {}
     // EtherAddressWithTimer& operator=(EthernetAddress e_addr);
     EthernetAddress get_eth_addr() const { return ethernet_addr_; }
     EtherAddressWithTimer& tick( size_t ms_since_last_tick ) noexcept;
     EtherAddressWithTimer& operator+=( size_t ms_since_last_tick ) noexcept { return tick( ms_since_last_tick ); }
     auto operator<=> (const size_t interval) const { return time_passed_ <=> interval; }
-  private:
-    EthernetAddress ethernet_addr_;
-    size_t time_passed_ {};
   };
 
   // Human-readable name of the interface

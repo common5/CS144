@@ -84,7 +84,8 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
     if ( arp_msg.opcode == ARPMessage::OPCODE_REQUEST ) {
       // auto msg = make_arp_msg(ARPMessage::OPCODE_REPLY, arp_msg.sender_ethernet_address,
       // arp_msg.sender_ip_address);
-      transmit( make_eth_frame( EthernetHeader::TYPE_ARP,
+      if(arp_msg.target_ip_address == ip_address_.ipv4_numeric())
+        transmit( make_eth_frame( EthernetHeader::TYPE_ARP,
                                 arp_msg.sender_ethernet_address,
                                 serialize( make_arp_msg( ARPMessage::OPCODE_REPLY,
                                                          arp_msg.sender_ethernet_address,

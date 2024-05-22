@@ -63,50 +63,50 @@ EthernetFrame make_frame( const EthernetAddress& src,
 int main()
 {
   try {
-    // {
-    //   const EthernetAddress local_eth = random_private_ethernet_address();
-    //   NetworkInterfaceTestHarness test { "typical ARP workflow", local_eth, Address( "4.3.2.1", 0 ) };
+    {
+      const EthernetAddress local_eth = random_private_ethernet_address();
+      NetworkInterfaceTestHarness test { "typical ARP workflow", local_eth, Address( "4.3.2.1", 0 ) };
 
-    //   const auto datagram = make_datagram( "5.6.7.8", "13.12.11.10" );
-    //   test.execute( SendDatagram { datagram, Address( "192.168.0.1", 0 ) } );
+      const auto datagram = make_datagram( "5.6.7.8", "13.12.11.10" );
+      test.execute( SendDatagram { datagram, Address( "192.168.0.1", 0 ) } );
 
-    //   // outgoing datagram should result in an ARP request
-    //   test.execute( ExpectFrame { make_frame(
-    //     local_eth,
-    //     ETHERNET_BROADCAST,
-    //     EthernetHeader::TYPE_ARP,
-    //     serialize( make_arp( ARPMessage::OPCODE_REQUEST, local_eth, "4.3.2.1", {}, "192.168.0.1" ) ) ) } );
-    //   test.execute( ExpectNoFrame {} );
-    //   const EthernetAddress target_eth = random_private_ethernet_address();
+      // outgoing datagram should result in an ARP request
+      test.execute( ExpectFrame { make_frame(
+        local_eth,
+        ETHERNET_BROADCAST,
+        EthernetHeader::TYPE_ARP,
+        serialize( make_arp( ARPMessage::OPCODE_REQUEST, local_eth, "4.3.2.1", {}, "192.168.0.1" ) ) ) } );
+      test.execute( ExpectNoFrame {} );
+      const EthernetAddress target_eth = random_private_ethernet_address();
 
-    //   test.execute( Tick { 800 } );
-    //   test.execute( ExpectNoFrame {} );
+      test.execute( Tick { 800 } );
+      test.execute( ExpectNoFrame {} );
 
-    //   // ARP reply should result in the queued datagram getting sent
-    //   test.execute( ReceiveFrame {
-    //     make_frame(
-    //       target_eth,
-    //       local_eth,
-    //       EthernetHeader::TYPE_ARP, // NOLINTNEXTLINE(*-suspicious-*)
-    //       serialize( make_arp( ARPMessage::OPCODE_REPLY, target_eth, "192.168.0.1", local_eth, "4.3.2.1" ) ) ),
-    //     {} } );
+      // ARP reply should result in the queued datagram getting sent
+      test.execute( ReceiveFrame {
+        make_frame(
+          target_eth,
+          local_eth,
+          EthernetHeader::TYPE_ARP, // NOLINTNEXTLINE(*-suspicious-*)
+          serialize( make_arp( ARPMessage::OPCODE_REPLY, target_eth, "192.168.0.1", local_eth, "4.3.2.1" ) ) ),
+        {} } );
 
-    //   test.execute(
-    //     ExpectFrame { make_frame( local_eth, target_eth, EthernetHeader::TYPE_IPv4, serialize( datagram ) ) } );
-    //   test.execute( ExpectNoFrame {} );
+      test.execute(
+        ExpectFrame { make_frame( local_eth, target_eth, EthernetHeader::TYPE_IPv4, serialize( datagram ) ) } );
+      test.execute( ExpectNoFrame {} );
 
-    //   // any IP reply directed for our Ethernet address should be passed up the stack
-    //   const auto reply_datagram = make_datagram( "13.12.11.10", "5.6.7.8" );
-    //   test.execute(
-    //     ReceiveFrame( make_frame( target_eth, local_eth, EthernetHeader::TYPE_IPv4, serialize( reply_datagram ) ),
-    //                   reply_datagram ) );
-    //   test.execute( ExpectNoFrame {} );
+      // any IP reply directed for our Ethernet address should be passed up the stack
+      const auto reply_datagram = make_datagram( "13.12.11.10", "5.6.7.8" );
+      test.execute(
+        ReceiveFrame( make_frame( target_eth, local_eth, EthernetHeader::TYPE_IPv4, serialize( reply_datagram ) ),
+                      reply_datagram ) );
+      test.execute( ExpectNoFrame {} );
 
-    //   // incoming frames to another Ethernet address (not ours) should be ignored
-    //   const EthernetAddress another_eth = { 1, 1, 1, 1, 1, 1 };
-    //   test.execute( ReceiveFrame(
-    //     make_frame( target_eth, another_eth, EthernetHeader::TYPE_IPv4, serialize( reply_datagram ) ), {} ) );
-    // }
+      // incoming frames to another Ethernet address (not ours) should be ignored
+      const EthernetAddress another_eth = { 1, 1, 1, 1, 1, 1 };
+      test.execute( ReceiveFrame(
+        make_frame( target_eth, another_eth, EthernetHeader::TYPE_IPv4, serialize( reply_datagram ) ), {} ) );
+    }
 
     {
       const EthernetAddress local_eth = random_private_ethernet_address();
